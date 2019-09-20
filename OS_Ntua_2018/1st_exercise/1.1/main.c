@@ -1,8 +1,6 @@
 #include "zing.h"
 
 int main(void){
-	
-	zing(); 
-	return 0;
-
+    zing();
+    return 0;
 }

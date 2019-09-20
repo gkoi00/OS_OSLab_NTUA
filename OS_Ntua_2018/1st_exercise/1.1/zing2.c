@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <unistd.h>
 void zing(){
-	char *name;
+    char *name;
 
-	name = getlogin();
-	printf("Welcome to the machine %s!\n",name);
+    name = getlogin();
+    printf("Welcome to the machine %s!\n",name);
 
 }

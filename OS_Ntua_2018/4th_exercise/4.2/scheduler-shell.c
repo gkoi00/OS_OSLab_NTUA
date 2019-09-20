@@ -1,30 +1,3 @@
-//NEW STUFF HERE:
-//	shell implementation and interaction with the scheduler
-//
-//This program is an extention of the previous one.
-//Now the scheduler also includes another process, the "shell". The source
-//code is in the file shell.c and request.h has the declarations of the requests
-//from the shell to the scheduler.
-//The available commands are "k id": kill process
-//							 "p exec": spawn a new process
-//							 "p": print all processes and the current one
-//							 "q": exit
-//
-//************************* Known bug (1) *******************************
-// if I have shell----prog----prog
-//                    id=1    id=2
-//and kill prog with id=1 then the remaining process will still have id=2.
-//This needs to be fixed.
-//
-//*********************** Known bug (2) *********************************
-// when all processes terminate the scheduler still schedules the shell.
-//So in order to terminate I should type "q" to terminate the shell, or
-//to fix it so that the shell terminates when no process is alive.
-//
-//Usage:
-//		eg: ./scheduler prog prog
-// 		and during the execution I can use the available shell commands.
-
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -56,25 +29,25 @@ Node *head, *tail; //since the queue will be circular, head indicates the curren
 int queue_items;   //is the number of procs except the "shell" (includes the "scheduler")
 
 //Compile-time parameters.
-#define TQ 2             				 //time quantum
-#define TASK_NAME_SZ 60   				 //maximum size for a task's name
-#define SHELL_EXECUTABLE_NAME "shell"	 //shell name defined
+#define TQ 2                              //time quantum
+#define TASK_NAME_SZ 60                    //maximum size for a task's name
+#define SHELL_EXECUTABLE_NAME "shell"     //shell name defined
 
 int main(int argc, char **argv){
-	//The two file descriptors for communication between shell and scheduler are static
-	//because they should not lose their value when a function if that would go to happen
+    //The two file descriptors for communication between shell and scheduler are static
+    //because they should not lose their value when a function if that would go to happen
 
-	static int request_fd, return_fd;
+    static int request_fd, return_fd;
     int number_of_procs; //is the number of processes about to start including the scheduler
     pid_t pid;
     queue_items = 0;
 
     number_of_procs = argc; //scheduler and all processes
 
-	//Create the shell
-	sched_create_shell(SHELL_EXECUTABLE_NAME, &request_fd, &return_fd);
+    //Create the shell
+    sched_create_shell(SHELL_EXECUTABLE_NAME, &request_fd, &return_fd);
 
-	//Create processes given as arguments
+    //Create processes given as arguments
     for(int i = 1; i < number_of_procs; i++){
         pid = fork();
         if(pid != 0){
@@ -82,13 +55,13 @@ int main(int argc, char **argv){
             insert_in_queue(i, pid, argv[i]); //(id, pid, name)
         }
         else{
-			change_pname(argv[i]);
+            change_pname(argv[i]);
             char *newargv[] = {argv[i], NULL};
             char *newenviron[] = {NULL};
 
             raise(SIGSTOP);
 
-			//forked process is replaced with executable given as an argument
+            //forked process is replaced with executable given as an argument
             execve(argv[i], newargv, newenviron);
         }
     }
@@ -101,7 +74,7 @@ int main(int argc, char **argv){
 
     //wait for children to raise sigstop and show the current instant of processes
     wait_for_ready_children(number_of_procs);
-	show_pstree(getpid());
+    show_pstree(getpid());
 
     install_signal_handlers();
 
@@ -116,12 +89,12 @@ int main(int argc, char **argv){
         exit(1);
     }
 
-	alarm(TQ);
+    alarm(TQ);
 
-	//scheduler remains in here to read and execute the tasks sent by the "shell"
-	shell_request_loop(request_fd, return_fd);
+    //scheduler remains in here to read and execute the tasks sent by the "shell"
+    shell_request_loop(request_fd, return_fd);
 
-	//if I get out of a signal handler I exit the following loop and reach an unwanted point
+    //if I get out of a signal handler I exit the following loop and reach an unwanted point
     while(pause())
         ;
 
@@ -131,95 +104,95 @@ int main(int argc, char **argv){
 }
 
 static void sched_create_shell(char *executable, int *request_fd, int *return_fd){
-	pid_t pid;
-	int pd_rq[2], pd_ret[2];
+    pid_t pid;
+    int pd_rq[2], pd_ret[2];
 
-	//open two pipes:
-	//one for reading or writing requests
-	//and one for reading and writing returns
-	if(pipe(pd_rq) < 0 || pipe(pd_ret) < 0){
-		perror("pipe");
-		exit(1);
-	}
+    //open two pipes:
+    //one for reading or writing requests
+    //and one for reading and writing returns
+    if(pipe(pd_rq) < 0 || pipe(pd_ret) < 0){
+        perror("pipe");
+        exit(1);
+    }
 
-	pid = fork();
-	if(pid < 0){
-		perror("scheduler: fork");
-		exit(1);
-	}
+    pid = fork();
+    if(pid < 0){
+        perror("scheduler: fork");
+        exit(1);
+    }
 
-	if(pid == 0){
-		//CHILD
-		change_pname(SHELL_EXECUTABLE_NAME);
-		close(pd_rq[0]);
-		close(pd_ret[1]);
-		do_shell(executable, pd_rq[1], pd_ret[0]); //create the shell
+    if(pid == 0){
+        //CHILD
+        change_pname(SHELL_EXECUTABLE_NAME);
+        close(pd_rq[0]);
+        close(pd_ret[1]);
+        do_shell(executable, pd_rq[1], pd_ret[0]); //create the shell
 
-		//I should not reach here
-		assert(0);
-	}
-	//PARENT AKA SCHEDULER
+        //I should not reach here
+        assert(0);
+    }
+    //PARENT AKA SCHEDULER
 
-	//create "shell" process node and since it is the first process
-	head = (Node*) malloc (sizeof(Node));
-	head->id = 0;
-	head->pid = pid;
-	head->name = strdup(SHELL_EXECUTABLE_NAME);
-	tail = head;
-	tail->next = NULL;
+    //create "shell" process node and since it is the first process
+    head = (Node*) malloc (sizeof(Node));
+    head->id = 0;
+    head->pid = pid;
+    head->name = strdup(SHELL_EXECUTABLE_NAME);
+    tail = head;
+    tail->next = NULL;
 
-	close(pd_rq[1]);
-	close(pd_ret[0]);
-	*request_fd = pd_rq[0];
-	*return_fd = pd_ret[1];
+    close(pd_rq[1]);
+    close(pd_ret[0]);
+    *request_fd = pd_rq[0];
+    *return_fd = pd_ret[1];
 }
 
 static void do_shell(char *executable, int wfd, int rfd){
-	char arg1[10], arg2[10];
-	char *newargv[] = { executable, NULL, NULL, NULL };
-	char *newenviron[] = { NULL };
+    char arg1[10], arg2[10];
+    char *newargv[] = { executable, NULL, NULL, NULL };
+    char *newenviron[] = { NULL };
 
-	sprintf(arg1, "%05d", wfd);
-	sprintf(arg2, "%05d", rfd);
-	newargv[1] = arg1;
-	newargv[2] = arg2;
+    sprintf(arg1, "%05d", wfd);
+    sprintf(arg2, "%05d", rfd);
+    newargv[1] = arg1;
+    newargv[2] = arg2;
 
-	raise(SIGSTOP);
-	execve(executable, newargv, newenviron);
+    raise(SIGSTOP);
+    execve(executable, newargv, newenviron);
 
-	//execve() only returns on error
-	perror("scheduler: child: execve");
-	exit(1);
+    //execve() only returns on error
+    perror("scheduler: child: execve");
+    exit(1);
 }
 
 static void shell_request_loop(int request_fd, int return_fd){
-	int ret;
-	struct request_struct rq;
+    int ret;
+    struct request_struct rq;
 
-	//Keep receiving requests from the shell.
-	for (;;) {
-		if (read(request_fd, &rq, sizeof(rq)) != sizeof(rq)) {
-			perror("scheduler: read from shell");
-			fprintf(stderr, "Scheduler: giving up on shell request processing.\n");
-			break;
-		}
+    //Keep receiving requests from the shell.
+    for (;;) {
+        if (read(request_fd, &rq, sizeof(rq)) != sizeof(rq)) {
+            perror("scheduler: read from shell");
+            fprintf(stderr, "Scheduler: giving up on shell request processing.\n");
+            break;
+        }
 
-		//signals come and go when the TQ seconds end and the scheduler changes the
-		//current process. So while the shell is in the middle of a request 
-		//processing we dont want an external signal to disrupt it and lead to 
-		//unwanted situations. As soon as the processing ends the signal get 
-		//unblocked again and if the processing gave a SIGKILL it will be examined
-		//now in the sigchld_handler function
-		signals_disable();
-		ret = process_request(&rq);
-		signals_enable();
+        //signals come and go when the TQ seconds end and the scheduler changes the
+        //current process. So while the shell is in the middle of a request
+        //processing we dont want an external signal to disrupt it and lead to
+        //unwanted situations. As soon as the processing ends the signal get
+        //unblocked again and if the processing gave a SIGKILL it will be examined
+        //now in the sigchld_handler function
+        signals_disable();
+        ret = process_request(&rq);
+        signals_enable();
 
-		if (write(return_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-			perror("scheduler: write to shell");
-			fprintf(stderr, "Scheduler: giving up on shell request processing.\n");
-			break;
-		}
-	}
+        if (write(return_fd, &ret, sizeof(ret)) != sizeof(ret)) {
+            perror("scheduler: write to shell");
+            fprintf(stderr, "Scheduler: giving up on shell request processing.\n");
+            break;
+        }
+    }
 }
 
 static void install_signal_handlers(void){
@@ -293,7 +266,7 @@ static void sigchld_handler(int signum){
             //continue the next one
             if(kill(head->pid, SIGCONT) < 0){
             //WNOHANG: return immediately if no child has exited.
-        	//WUNTRACED: also return if a child has stopped (but not traced via ptrace(2))
+            //WUNTRACED: also return if a child has stopped (but not traced via ptrace(2))
                 perror("Cont error (WIFEXITED) | (WIFSIGNALED)");
                 exit(1);
             }
@@ -304,11 +277,11 @@ static void sigchld_handler(int signum){
         if(WIFSTOPPED(status)){
             //the child did not terminate yet
 
-			//set the queue ready for next operation
+            //set the queue ready for next operation
             head = head->next;
             tail = tail->next;
 
-			//continue the next one
+            //continue the next one
             if(kill(head->pid, SIGCONT) < 0){
                 perror("Cont error (WIFSTOPPED)");
                 exit(1);
@@ -320,109 +293,109 @@ static void sigchld_handler(int signum){
 }
 
 static void signals_enable(void){
-	sigset_t sigset;
+    sigset_t sigset;
 
-	sigemptyset(&sigset);
-	sigaddset(&sigset, SIGALRM);
-	sigaddset(&sigset, SIGCHLD);
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGALRM);
+    sigaddset(&sigset, SIGCHLD);
 
-	if (sigprocmask(SIG_UNBLOCK, &sigset, NULL) < 0) {
-		perror("signals_enable: sigprocmask");
-		exit(1);
-	}
+    if (sigprocmask(SIG_UNBLOCK, &sigset, NULL) < 0) {
+        perror("signals_enable: sigprocmask");
+        exit(1);
+    }
 }
 
 static void signals_disable(void){
-	sigset_t sigset;
+    sigset_t sigset;
 
-	sigemptyset(&sigset);
-	sigaddset(&sigset, SIGALRM);
-	sigaddset(&sigset, SIGCHLD);
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGALRM);
+    sigaddset(&sigset, SIGCHLD);
 
-	if (sigprocmask(SIG_BLOCK, &sigset, NULL) < 0) {
-		perror("signals_disable: sigprocmask");
-		exit(1);
-	}
+    if (sigprocmask(SIG_BLOCK, &sigset, NULL) < 0) {
+        perror("signals_disable: sigprocmask");
+        exit(1);
+    }
 }
 
 static int process_request(struct request_struct *rq){
-	switch (rq->request_no) {
-		case REQ_PRINT_TASKS:
-			sched_print_tasks();
-			return 0;
+    switch (rq->request_no) {
+        case REQ_PRINT_TASKS:
+            sched_print_tasks();
+            return 0;
 
-		case REQ_KILL_TASK:
-			return sched_kill_task_by_id(rq->task_arg);
+        case REQ_KILL_TASK:
+            return sched_kill_task_by_id(rq->task_arg);
 
-		case REQ_EXEC_TASK:
-			sched_create_task(rq->exec_task_arg);
-			return 0;
+        case REQ_EXEC_TASK:
+            sched_create_task(rq->exec_task_arg);
+            return 0;
 
-		default:
-			return -ENOSYS;
-	}
+        default:
+            return -ENOSYS;
+    }
 }
 
 static void sched_print_tasks(void){
-	Node* temp = head;
-	int i = 0;
+    Node* temp = head;
+    int i = 0;
 
-	printf("Current ");
+    printf("Current ");
 
-	for (i = 0; i < queue_items + 1; ++i){
-		printf("PID: %d, name: %s \n", temp->pid, temp->name);
-		temp = temp->next;
-		if (temp == head) break;
-	}
+    for (i = 0; i < queue_items + 1; ++i){
+        printf("PID: %d, name: %s \n", temp->pid, temp->name);
+        temp = temp->next;
+        if (temp == head) break;
+    }
 }
 
 static int sched_kill_task_by_id(int id){
-	Node* temp = head;
+    Node* temp = head;
 
-	while (temp->id != id) temp = temp->next;
-	if (temp == head)
-		return -1;
-	else{
-		printf("PID %d has been killed.\n", temp->pid);
-		if (kill(temp->pid, SIGKILL) < 0) {
-			printf("SIGKILL error");
-		}
+    while (temp->id != id) temp = temp->next;
+    if (temp == head)
+        return -1;
+    else{
+        printf("PID %d has been killed.\n", temp->pid);
+        if (kill(temp->pid, SIGKILL) < 0) {
+            printf("SIGKILL error");
+        }
 
-		head = temp; //set the current process to be the one that is being deleted and
-					 //now when sigchld_handler is called it removes the right process
-	}
-	return id;
+        head = temp; //set the current process to be the one that is being deleted and
+                     //now when sigchld_handler is called it removes the right process
+    }
+    return id;
 }
 
 static void sched_create_task(char *executable){
 
-	queue_items++;
+    queue_items++;
 
-	pid_t pid = fork();
-	if (pid < 0) {
-		perror("fork");
-		exit(EXIT_FAILURE);
-	}
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
 
-	if(pid != 0){
-		printf("Spawn process: %s PID: %d\n", executable, pid);
-		show_pstree(getpid());
+    if(pid != 0){
+        printf("Spawn process: %s PID: %d\n", executable, pid);
+        show_pstree(getpid());
 
-		//making the queue linear
-		tail->next = NULL;
+        //making the queue linear
+        tail->next = NULL;
 
-		insert_in_queue(queue_items, pid, executable);
+        insert_in_queue(queue_items, pid, executable);
 
-		//making the queue cirqular again
-		tail->next = head;
-	}
-	else{
-		change_pname(executable);
-		char *newargv[] = {executable, NULL};
-		char *newenviron[] = {NULL};
+        //making the queue cirqular again
+        tail->next = head;
+    }
+    else{
+        change_pname(executable);
+        char *newargv[] = {executable, NULL};
+        char *newenviron[] = {NULL};
 
-		raise(SIGSTOP);
+        raise(SIGSTOP);
 
-		execve(executable, newargv, newenviron);
-	}
+        execve(executable, newargv, newenviron);
+    }
 }

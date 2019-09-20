@@ -1,15 +1,3 @@
-//NEW STUFF HERE:
-//	THREADS, ATOMIC OPERATIONS, MUTEXES, TWO EXECUTABLES FROM ONE SOURCE FILE
-//
-//This program uses two threads. The first increase the value of variable val and 
-//the seconf decreases it.
-//It produces an executable where the two threads are syncronized with mutexes
-//and another where synchronization is achieved with atomic operations.
-//
-//To see the assempbly code run:
-//	 gcc -S -DSYNC_ATOMIC simplesync.c
-//or gcc -S -DSYNC_MUTEX simplesync.c
-	
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +10,7 @@
  * This macro helps with error reporting in this case.
  */
 #define perror_pthread(ret, msg) \
-	do { errno = ret; perror(msg); } while (0)
+    do { errno = ret; perror(msg); } while (0)
 
 #define N 10000000
 
@@ -48,105 +36,105 @@ pthread_mutex_t mtx; //declaration of a mutex (it is initialize dynamically bell
 //THREAD 1
 void *increase_fn(void *arg)
 {
-	int i, ret;
-	volatile int *ip = arg;
+    int i, ret;
+    volatile int *ip = arg;
 
-	fprintf(stderr, "About to increase variable %d times\n", N);
-	for (i = 0; i < N; i++) {
-		if (USE_ATOMIC_OPS) {
-			//atomic
-			__sync_fetch_and_add(ip, 1);
-		} else {
-			//lock
-			ret = pthread_mutex_lock(&mtx);
-			if(ret){
-				perror_pthread(ret, "pthread_mutex_lock");
-			}
-			//increase
-			++(*ip);
-			//unlock
-			ret = pthread_mutex_unlock(&mtx);
-			if(ret){
-				perror_pthread(ret, "pthread_mutex_unlock");
-			}
-		}
-	}
-	fprintf(stderr, "Done increasing variable.\n");
+    fprintf(stderr, "About to increase variable %d times\n", N);
+    for (i = 0; i < N; i++) {
+        if (USE_ATOMIC_OPS) {
+            //atomic
+            __sync_fetch_and_add(ip, 1);
+        } else {
+            //lock
+            ret = pthread_mutex_lock(&mtx);
+            if(ret){
+                perror_pthread(ret, "pthread_mutex_lock");
+            }
+            //increase
+            ++(*ip);
+            //unlock
+            ret = pthread_mutex_unlock(&mtx);
+            if(ret){
+                perror_pthread(ret, "pthread_mutex_unlock");
+            }
+        }
+    }
+    fprintf(stderr, "Done increasing variable.\n");
 
-	return NULL;
+    return NULL;
 }
 
 //THREAD 2
 void *decrease_fn(void *arg)
 {
-	int i;
-	volatile int *ip = arg;
+    int i;
+    volatile int *ip = arg;
 
-	fprintf(stderr, "About to decrease variable %d times\n", N);
-	for (i = 0; i < N; i++) {
-		if (USE_ATOMIC_OPS) {
-			//atomic
-			__sync_fetch_and_add(ip, -1);
-		} else {
-			//lock mutex
-			pthread_mutex_lock(&mtx);
-			//decrease
-			--(*ip);
-			//unlock
-			pthread_mutex_unlock(&mtx);
-		}
-	}
-	fprintf(stderr, "Done decreasing variable.\n");
+    fprintf(stderr, "About to decrease variable %d times\n", N);
+    for (i = 0; i < N; i++) {
+        if (USE_ATOMIC_OPS) {
+            //atomic
+            __sync_fetch_and_add(ip, -1);
+        } else {
+            //lock mutex
+            pthread_mutex_lock(&mtx);
+            //decrease
+            --(*ip);
+            //unlock
+            pthread_mutex_unlock(&mtx);
+        }
+    }
+    fprintf(stderr, "Done decreasing variable.\n");
 
-	return NULL;
+    return NULL;
 }
 
 int main(int argc, char *argv[])
 {
-	int val, ret, ok;
-	pthread_t t1, t2;
-	pthread_mutex_init(&mtx, NULL); //dynamically initialized mutex
+    int val, ret, ok;
+    pthread_t t1, t2;
+    pthread_mutex_init(&mtx, NULL); //dynamically initialized mutex
 
-	//initial value
-	val = 0;
+    //initial value
+    val = 0;
 
-	//create thread 1
- 	ret = pthread_create(&t1, NULL, increase_fn, &val);
-	if (ret){
-		perror_pthread(ret, "pthread_create");
-		exit(1);
-	}
+    //create thread 1
+     ret = pthread_create(&t1, NULL, increase_fn, &val);
+    if (ret){
+        perror_pthread(ret, "pthread_create");
+        exit(1);
+    }
 
-	//create thread 2
-	ret = pthread_create(&t2, NULL, decrease_fn, &val);
-	if (ret){
-		perror_pthread(ret, "pthread_create");
-		exit(1);
-	}
+    //create thread 2
+    ret = pthread_create(&t2, NULL, decrease_fn, &val);
+    if (ret){
+        perror_pthread(ret, "pthread_create");
+        exit(1);
+    }
 
-	//wait for thread 1 to terminate
-	ret = pthread_join(t1, NULL);
-	if(ret){
-		perror_pthread(ret, "perror_join");
-	}
+    //wait for thread 1 to terminate
+    ret = pthread_join(t1, NULL);
+    if(ret){
+        perror_pthread(ret, "perror_join");
+    }
 
-	//wait for thread 2 to terminate
-	ret = pthread_join(t2, NULL);
-	if(ret){
-		perror_pthread(ret, "perror_join");
-	}
+    //wait for thread 2 to terminate
+    ret = pthread_join(t2, NULL);
+    if(ret){
+        perror_pthread(ret, "perror_join");
+    }
 
-	//is everything ok?
-	ok = (val == 0);
-	printf("%sOK, val = %d.\n", ok ? "" : "NOT ", val);
+    //is everything ok?
+    ok = (val == 0);
+    printf("%sOK, val = %d.\n", ok ? "" : "NOT ", val);
 
-	/*
-	bellow is the equivalent of this printf instruction:
-	if(ok){
-		printf("OK, val = %d.\n", val);
-	} else{
-		printf("NOT OK, val = %d.\n", val);
-	}
-	*/
-	return ok;
+    /*
+    bellow is the equivalent of this printf instruction:
+    if(ok){
+        printf("OK, val = %d.\n", val);
+    } else{
+        printf("NOT OK, val = %d.\n", val);
+    }
+    */
+    return ok;
 }
