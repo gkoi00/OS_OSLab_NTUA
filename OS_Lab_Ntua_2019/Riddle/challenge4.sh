@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mkfifo magic_mirror
+
+./riddle

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+ln .hello_there .hey_there
+
+./riddle
