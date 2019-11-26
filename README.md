@@ -1,4 +1,4 @@
-# Operating-Systems-NTUA
+# Operating-Systems & operating-Systems-Lab-NTUA
 
 This repository contains development in the **Linux Operating System** and the **Linux kernel**.
 
