@@ -2,4 +2,4 @@
 
 * **The Riddle**
 * **Lunix:TNG**, driver for the Linux Kernel ***(see repository [Lunix_TNG](https://github.com/ntouev/Lunix_TNG))***
-* **VirtIO-cryptodev**, driver for Cryptographic Accelerators (Linux kernel and QEMU) ***(see repository [VirtIO_cryptodev](https://github.com/ntouev/VirtIO-cryptodev))***
+* **VirtIO-cryptodev**, driver for Cryptographic Accelerators in virtual environments(Linux kernel and QEMU) ***(see repository [VirtIO_cryptodev](https://github.com/ntouev/VirtIO-cryptodev))***
