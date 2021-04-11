@@ -131,5 +131,6 @@ void forks(struct tree_node *ptr, int pd){
         pid = wait(&status);
         explain_wait_status(pid, status);
     }
+    free(number)
     exit(0);
 }
